@@ -2223,27 +2223,31 @@ async function submitPlayerName() {
     return;
   }
 
-  const { database, ref, set, push } = window.firebaseDB;
+  const { database, ref, push, set } = window.firebaseDB;
 
   gameState.currentPlayer = playerName;
-
-  // ✅ TẠO PLAYER TRONG FIREBASE
-  const playerRef = push(
-    ref(database, `rooms/${gameState.roomCode}/players`)
-  );
-
-  const playerData = {
-    name: playerName,
-    joinedAt: Date.now(),
-    status: 'waiting'
-  };
-
-  await set(playerRef, playerData);
-
   saveGameState();
 
-  document.getElementById('welcome-name').textContent = playerName;
-  navigateTo('welcome');
+  try {
+    // ✅ TẠO PLAYER TRONG FIREBASE
+    const playerRef = push(ref(database, `rooms/${gameState.roomCode}/players`));
+
+    const playerData = {
+      name: playerName,
+      joinedAt: Date.now(),
+      status: 'waiting'
+    };
+
+    await set(playerRef, playerData);
+
+    console.log('✅ Player joined:', playerData);
+
+    navigateTo('welcome');
+
+  } catch (err) {
+    console.error(err);
+    alert('❌ Lỗi tham gia phòng');
+  }
 }
 
 // Start game
@@ -2867,13 +2871,13 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBFH474j7xKlGlew4I8sQbq6E7X1SEBlpI",
-  authDomain: "lac-li-xi-2026-26fb7.firebaseapp.com",
+  apiKey: "AIzaSyB83HpHO5PRHkJ8YDLdDAySOmIQVtTtUXk",
+  authDomain: "lac-li-xi-2026-8f32c.firebaseapp.com",
   databaseURL: "https://lac-li-xi-2026-8f32c-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "lac-li-xi-2026-26fb7",
-  storageBucket: "lac-li-xi-2026-26fb7.firebasestorage.app",
-  messagingSenderId: "493239239819",
-  appId: "1:493239239819:web:f0c5b557e23d78d27f008e"
+  projectId: "lac-li-xi-2026-8f32c",
+  storageBucket: "lac-li-xi-2026-8f32c.firebasestorage.app",
+  messagingSenderId: "230674094866",
+  appId: "1:230674094866:web:d7fc3a0d9d357aba32b1cb"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -2890,66 +2894,7 @@ window.firebaseDB = {
   push
 };
 
-console.log("✅ Firebase READY");
-</script>
-<script>
-const FirebaseHelper = {
-  async createRoom(roomCode, roomData) {
-    const { database, ref, set } = window.firebaseDB;
-    await set(ref(database, `rooms/${roomCode}`), {
-      ...roomData,
-      createdAt: Date.now(),
-      players: {}
-    });
-  },
-
-  async getRoom(roomCode) {
-    const { database, ref, get } = window.firebaseDB;
-    const snapshot = await get(ref(database, `rooms/${roomCode}`));
-    return snapshot.exists() ? snapshot.val() : null;
-  }
-};
-
-console.log("✅ FirebaseHelper READY");
-</script>
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import {
-  getDatabase,
-  ref,
-  set,
-  get,
-  onValue,
-  update,
-  remove,
-  push
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBFH474j7xKlGlew4I8sQbq6E7X1SEBlpI",
-  authDomain: "lac-li-xi-2026-26fb7.firebaseapp.com",
-  databaseURL: "https://lac-li-xi-2026-26fb7-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "lac-li-xi-2026-26fb7",
-  storageBucket: "lac-li-xi-2026-26fb7.firebasestorage.app",
-  messagingSenderId: "493239239819",
-  appId: "1:493239239819:web:f0c5b557e23d78d27f008e"
-};
-
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
-
-window.firebaseDB = {
-  database,
-  ref,
-  set,
-  get,
-  onValue,
-  update,
-  remove,
-  push
-};
-
-console.log("🔥 FIREBASE LOADED");
+console.log("🔥 FIREBASE READY");
 </script>
 </body>
 </html>
