@@ -1997,45 +1997,60 @@ async function createRoom() {
     return;
   }
 
+  // ✅ TẠO MÃ PHÒNG
   const roomCode = generateRoomCode();
 
-  const roomData = {
-    hostName,
-    shakeCount,
-    remainingShakes: shakeCount,
-    mode,
-    denominations: gameState.denominations,
-    specialPrizes: gameState.specialPrizes,
-    gameStarted: false
-  };
-
-  try {
-    await FirebaseHelper.createRoom(roomCode, roomData);
-  } catch (err) {
-    console.error(err);
-    alert('❌ Lỗi khi tạo phòng Firebase');
-    return;
-  }
-
-  // ✅ SET STATE MỚI
+  // ✅ CẬP NHẬT STATE (KHÔNG CLEAR)
+  gameState.hostName = hostName;
+  gameState.shakeCount = shakeCount;
+  gameState.remainingShakes = shakeCount;
+  gameState.mode = mode;
   gameState.roomCode = roomCode;
   gameState.roomLink =
-    window.location.origin + window.location.pathname + '?room=' + roomCode;
-  gameState.hostName = hostName;
+    window.location.origin +
+    window.location.pathname +
+    '?room=' +
+    roomCode;
   gameState.isHost = true;
   gameState.gameStarted = false;
-  gameState.remainingShakes = shakeCount;
+
+  gameState.denominationsBackup = { ...gameState.denominations };
+  gameState.specialPrizesBackup = { ...gameState.specialPrizes };
 
   saveGameState();
 
+  // ✅ GHI FIREBASE
+  try {
+    await FirebaseHelper.createRoom(roomCode, {
+      hostName,
+      shakeCount,
+      remainingShakes: shakeCount,
+      mode,
+      denominations: gameState.denominations,
+      specialPrizes: gameState.specialPrizes,
+      gameStarted: false
+    });
+  } catch (err) {
+    console.error(err);
+    alert('❌ Lỗi ghi Firebase');
+    return;
+  }
+
+  // ✅ ĐI ADMIN
   navigateTo('admin');
 
+  // ✅ HIỂN THỊ QR + MÃ
   document.getElementById('room-code-display').textContent = roomCode;
   document.getElementById('room-code-display-2').textContent = roomCode;
 
-  generateQRCode();
-}
-function generateRoomCode() {
+  const qr = document.getElementById('qrcode');
+  qr.innerHTML = '';
+  new QRCode(qr, {
+    text: gameState.roomLink,
+    width: 180,
+    height: 180
+  });
+}function generateRoomCode() {
     return 'TET' + Math.random().toString(36).substr(2, 6).toUpperCase();
 }
 
