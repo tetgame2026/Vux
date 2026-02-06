@@ -1976,7 +1976,7 @@ function updateDenomList() {
     saveGameState();
 }
 
-// Create room - FIXED VERSION
+// Create room - FINAL FIX
 async function createRoom() {
   const hostName = document.getElementById('host-name').value.trim();
   const shakeCount = parseInt(document.getElementById('shake-count').value);
@@ -1997,20 +1997,15 @@ async function createRoom() {
     return;
   }
 
-  // ✅ TẠO MÃ PHÒNG
   const roomCode = generateRoomCode();
 
-  // ✅ CẬP NHẬT STATE (KHÔNG CLEAR)
   gameState.hostName = hostName;
   gameState.shakeCount = shakeCount;
   gameState.remainingShakes = shakeCount;
   gameState.mode = mode;
   gameState.roomCode = roomCode;
   gameState.roomLink =
-    window.location.origin +
-    window.location.pathname +
-    '?room=' +
-    roomCode;
+    location.origin + location.pathname + '?room=' + roomCode;
   gameState.isHost = true;
   gameState.gameStarted = false;
 
@@ -2019,7 +2014,7 @@ async function createRoom() {
 
   saveGameState();
 
-  // ✅ GHI FIREBASE
+  // 🔥 GHI FIREBASE (CHỈ 1 LẦN)
   try {
     await FirebaseHelper.createRoom(roomCode, {
       hostName,
@@ -2035,18 +2030,9 @@ async function createRoom() {
     alert('❌ Lỗi ghi Firebase');
     return;
   }
-FirebaseHelper.createRoom(gameState.roomCode, {
-  hostName: gameState.hostName,
-  shakeCount: gameState.shakeCount,
-  mode: gameState.mode,
-  denominations: gameState.denominations,
-  specialPrizes: gameState.specialPrizes,
-  status: "waiting"
-});
-  // ✅ ĐI ADMIN
+
   navigateTo('admin');
 
-  // ✅ HIỂN THỊ QR + MÃ
   document.getElementById('room-code-display').textContent = roomCode;
   document.getElementById('room-code-display-2').textContent = roomCode;
 
@@ -2057,7 +2043,8 @@ FirebaseHelper.createRoom(gameState.roomCode, {
     width: 180,
     height: 180
   });
-}function generateRoomCode() {
+}
+function generateRoomCode() {
     return 'TET' + Math.random().toString(36).substr(2, 6).toUpperCase();
 }
 
