@@ -2829,12 +2829,18 @@ window.addEventListener('load', function() {
 });
     </script>
 <script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import {
+    getDatabase,
+    ref,
+    set,
+    get,
+    onValue,
+    update,
+    remove,
+    push
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-  // Your web app's Firebase configuration
   const firebaseConfig = {
     apiKey: "AIzaSyBFH474j7xKlGlew4I8sQbq6E7X1SEBlpI",
     authDomain: "lac-li-xi-2026-26fb7.firebaseapp.com",
@@ -2845,8 +2851,23 @@ window.addEventListener('load', function() {
     appId: "1:493239239819:web:f0c5b557e23d78d27f008e"
   };
 
-  // Initialize Firebase
+  // Init Firebase
   const app = initializeApp(firebaseConfig);
+  const database = getDatabase(app);
+
+  // 👇 CỰC KỲ QUAN TRỌNG
+  window.firebaseDB = {
+    database,
+    ref,
+    set,
+    get,
+    onValue,
+    update,
+    remove,
+    push
+  };
+
+  console.log("✅ Firebase READY", window.firebaseDB);
 </script>
 </body>
 </html>
