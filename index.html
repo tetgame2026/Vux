@@ -2035,7 +2035,14 @@ async function createRoom() {
     alert('❌ Lỗi ghi Firebase');
     return;
   }
-
+FirebaseHelper.createRoom(gameState.roomCode, {
+  hostName: gameState.hostName,
+  shakeCount: gameState.shakeCount,
+  mode: gameState.mode,
+  denominations: gameState.denominations,
+  specialPrizes: gameState.specialPrizes,
+  status: "waiting"
+});
   // ✅ ĐI ADMIN
   navigateTo('admin');
 
