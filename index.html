@@ -2032,6 +2032,7 @@ async function createRoom() {
   }
 
   navigateTo('admin');
+  listenPlayersRealtime();
 
   document.getElementById('room-code-display').textContent = roomCode;
   document.getElementById('room-code-display-2').textContent = roomCode;
@@ -2593,32 +2594,23 @@ function submitBankInfo() {
 }
 
 // Update player list
-function updatePlayerList() {
-    const container = document.getElementById('player-list');
-    container.innerHTML = '';
-    
-    if (gameState.players.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">👥</div>
-                <div class="empty-state-text">Chưa có người chơi nào</div>
-            </div>
-        `;
-        document.getElementById('player-count').textContent = '0';
-        return;
+function listenPlayersRealtime() {
+  const { database, ref, onValue } = window.firebaseDB;
+
+  onValue(ref(database, `rooms/${gameState.roomCode}/players`), (snapshot) => {
+    const data = snapshot.val();
+
+    gameState.players = [];
+
+    if (data) {
+      Object.values(data).forEach(player => {
+        gameState.players.push(player);
+      });
     }
 
-    gameState.players.forEach((player, index) => {
-        const item = document.createElement('div');
-        item.className = 'player-item';
-        item.innerHTML = `
-            <div class="player-avatar">${player.name.charAt(0).toUpperCase()}</div>
-            <div class="player-name">${player.name}</div>
-        `;
-        container.appendChild(item);
-    });
-
-    document.getElementById('player-count').textContent = gameState.players.length;
+    updatePlayerList();
+    updateWaitingPlayerList();
+  });
 }
 
 // Update prize inventory
