@@ -2914,5 +2914,44 @@ const FirebaseHelper = {
 
 console.log("✅ FirebaseHelper READY");
 </script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getDatabase,
+  ref,
+  set,
+  get,
+  onValue,
+  update,
+  remove,
+  push
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBFH474j7xKlGlew4I8sQbq6E7X1SEBlpI",
+  authDomain: "lac-li-xi-2026-26fb7.firebaseapp.com",
+  databaseURL: "https://lac-li-xi-2026-26fb7-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "lac-li-xi-2026-26fb7",
+  storageBucket: "lac-li-xi-2026-26fb7.firebasestorage.app",
+  messagingSenderId: "493239239819",
+  appId: "1:493239239819:web:f0c5b557e23d78d27f008e"
+};
+
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
+
+window.firebaseDB = {
+  database,
+  ref,
+  set,
+  get,
+  onValue,
+  update,
+  remove,
+  push
+};
+
+console.log("🔥 FIREBASE LOADED");
+</script>
 </body>
 </html>
