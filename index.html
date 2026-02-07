@@ -809,10 +809,13 @@
         }
 
         .player-status.waiting {
-            background: #FFE4E1;
-            color: #999;
-        }
-
+    background: #4CAF50;
+    color: white;
+}
+        .player-status.playing {
+    background: #4CAF50;
+    color: white;
+}
         .player-prize {
             background: #FFD700;
             padding: 5px 14px;
@@ -1230,7 +1233,46 @@
     </style>
     <!-- QRCode.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-</head>
+</head><script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getDatabase,
+  ref,
+  set,
+  get,
+  onValue,
+  update,
+  remove,
+  push
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB83HpHO5PRHkJ8YDLdDAySOmIQVtTtUXk",
+  authDomain: "lac-li-xi-2026-8f32c.firebaseapp.com",
+  databaseURL: "https://lac-li-xi-2026-8f32c-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "lac-li-xi-2026-8f32c",
+  storageBucket: "lac-li-xi-2026-8f32c.firebasestorage.app",
+  messagingSenderId: "230674094866",
+  appId: "1:230674094866:web:d7fc3a0d9d357aba32b1cb"
+};
+
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
+
+window.firebaseDB = {
+  database,
+  ref,
+  set,
+  get,
+  onValue,
+  update,
+  remove,
+  push
+};
+
+console.log("🔥 FIREBASE READY");
+</script>
+
 <body>
     <!-- Decorative elements -->
     <div class="fireworks" id="fireworks"></div>
@@ -1654,7 +1696,8 @@ let gameState = {
 const STORAGE_KEY = 'tet_lixi_game_state';
 let navigationHistory = ['home'];
 let specialPrizeCounter = 0;
-
+let playersListenerStarted = false;
+let playersListenerRoom = null;
 // Generate sparks for fireworks
 function createSparks() {
     const fireworks = document.getElementById('fireworks');
@@ -1670,27 +1713,25 @@ function createSparks() {
 createSparks();
 
 // Navigation
-function navigateTo(screenId, clearHistory = false, replaceHistory = false) {
+window.navigateTo = function (screenId, clearHistory = false, replaceHistory = false) {
     if (clearHistory) {
         navigationHistory = [screenId];
     } else if (replaceHistory) {
-        // Thay thế màn hình hiện tại thay vì thêm mới
         navigationHistory[navigationHistory.length - 1] = screenId;
     } else {
         navigationHistory.push(screenId);
     }
-    
+
     gameState.currentScreen = screenId;
     saveGameState();
     showScreen(screenId);
-    
+
     if (replaceHistory) {
         history.replaceState({ screen: screenId }, '', '#' + screenId);
     } else {
         history.pushState({ screen: screenId }, '', '#' + screenId);
     }
-}
-
+};
 function goBack() {
     if (navigationHistory.length > 1) {
         navigationHistory.pop();
@@ -1740,15 +1781,29 @@ function loadGameState() {
             Object.assign(gameState, loaded);
             
             if (gameState.isHost && gameState.roomCode) {
-                try {
-                    restoreAdminDashboard();
-                } catch (e) {
-                    clearGameState();
-                    showScreen('home');
-                    return;
-                }
-            }
-            
+    try {
+        // 🔥 CHỈ restore admin khi đang ở admin
+        if (gameState.currentScreen === 'admin') {
+            restoreAdminDashboard();
+        }
+
+        // 👂 Luôn bật listener
+        listenPlayersRealtime();
+
+        // 🧭 Quay lại đúng screen trước khi reload
+        if (gameState.currentScreen) {
+            showScreen(gameState.currentScreen);
+        } else {
+            showScreen('admin');
+        }
+
+    } catch (e) {
+        console.error('Restore host state failed:', e);
+        clearGameState();
+        showScreen('home');
+        return;
+    }
+}
             if (gameState.denominations && Object.keys(gameState.denominations).length > 0) {
                 try {
                     updateDenomList();
@@ -1790,7 +1845,14 @@ function resetApp() {
 }
 
 function restoreAdminDashboard() {
-    try {
+    try {// ✅ restore backup nếu reload
+if (!gameState.denominationsBackup || Object.keys(gameState.denominationsBackup).length === 0) {
+    gameState.denominationsBackup = JSON.parse(JSON.stringify(gameState.denominations));
+}
+
+if (!gameState.specialPrizesBackup || Object.keys(gameState.specialPrizesBackup).length === 0) {
+    gameState.specialPrizesBackup = JSON.parse(JSON.stringify(gameState.specialPrizes));
+}
         if (!gameState.roomCode || !gameState.roomLink) {
             throw new Error('Missing room data');
         }
@@ -1978,6 +2040,13 @@ function updateDenomList() {
 
 // Create room - FINAL FIX
 async function createRoom() {
+  // ✅ LẤY BUTTON BẰNG querySelector
+  const createBtn = document.querySelector('#screen-create-room .btn-primary');
+  if (createBtn) {
+    createBtn.disabled = true;
+    createBtn.textContent = '⏳ Đang tạo...';
+  }
+
   const hostName = document.getElementById('host-name').value.trim();
   const shakeCount = parseInt(document.getElementById('shake-count').value);
   const mode = document.querySelector('input[name="mode"]:checked').value;
@@ -1999,34 +2068,37 @@ async function createRoom() {
 
   const roomCode = generateRoomCode();
 
-  gameState.hostName = hostName;
-  gameState.shakeCount = shakeCount;
-  gameState.remainingShakes = shakeCount;
-  gameState.mode = mode;
-  gameState.roomCode = roomCode;
-  gameState.roomLink =
-    location.origin + location.pathname + '?room=' + roomCode;
-  gameState.isHost = true;
-  gameState.gameStarted = false;
+// ✅ BACKUP ĐÚNG – deep clone
+gameState.denominationsBackup = JSON.parse(JSON.stringify(gameState.denominations));
+gameState.specialPrizesBackup = JSON.parse(JSON.stringify(gameState.specialPrizes));
 
-  gameState.denominationsBackup = { ...gameState.denominations };
-  gameState.specialPrizesBackup = { ...gameState.specialPrizes };
+gameState.hostName = hostName;
+gameState.shakeCount = shakeCount;
+gameState.remainingShakes = shakeCount;
+gameState.mode = mode;
+gameState.roomCode = roomCode;
+gameState.roomLink =
+  location.origin + location.pathname + '?room=' + roomCode;
+gameState.isHost = true;
+gameState.gameStarted = false;
 
-  saveGameState();
+saveGameState();
+  const { database, ref, set } = window.firebaseDB;
 
-  // 🔥 GHI FIREBASE (CHỈ 1 LẦN)
   try {
-    await FirebaseHelper.createRoom(roomCode, {
+    await set(ref(database, `rooms/${roomCode}`), {
       hostName,
       shakeCount,
       remainingShakes: shakeCount,
       mode,
       denominations: gameState.denominations,
       specialPrizes: gameState.specialPrizes,
-      gameStarted: false
+      gameStarted: false,
+      createdAt: Date.now(),
+      players: {}
     });
   } catch (err) {
-    console.error(err);
+    console.error('🔥 Firebase write error:', err);
     alert('❌ Lỗi ghi Firebase');
     return;
   }
@@ -2043,6 +2115,13 @@ async function createRoom() {
     width: 180,
     height: 180
   });
+
+  listenPlayersRealtime();
+   // ✅ RESET BUTTON (nếu có lỗi)
+  if (createBtn) {
+    createBtn.disabled = false;
+    createBtn.textContent = '🎊 TẠO PHÒNG';
+  }
 }
 function generateRoomCode() {
     return 'TET' + Math.random().toString(36).substr(2, 6).toUpperCase();
@@ -2198,29 +2277,70 @@ async function joinRoom() {
     return;
   }
 
-  const { database, ref, get } = window.firebaseDB;
-
-  // ✅ 1. CHECK PHÒNG CÓ TỒN TẠI KHÔNG
-  const roomSnap = await get(ref(database, `rooms/${roomCode}`));
-  if (!roomSnap.exists()) {
-    alert('❌ Phòng không tồn tại');
-    return;
+  const joinBtn = document.querySelector('#screen-join-room .btn-primary');
+  if (joinBtn) {
+    joinBtn.disabled = true;
+    joinBtn.textContent = '⏳ Đang kiểm tra...';
   }
 
-  // ✅ 2. LƯU STATE
-  gameState.roomCode = roomCode;
-  gameState.isHost = false;
-  saveGameState();
+  const { database, ref, get } = window.firebaseDB;
 
-  // ✅ 3. CHUYỂN SANG NHẬP TÊN
-  navigateTo('enter-name');
+  try {
+    console.log('🔍 Checking room:', roomCode);
+
+    const roomSnap = await get(ref(database, `rooms/${roomCode}`));
+
+    // ❌ PHÒNG KHÔNG TỒN TẠI → CHỈ THOÁT, KHÔNG ĐỌC DATA
+    if (!roomSnap.exists()) {
+      alert('❌ Phòng không tồn tại');
+
+      if (joinBtn) {
+        joinBtn.disabled = false;
+        joinBtn.textContent = '🎉 THAM GIA';
+      }
+      return;
+    }
+
+    // ✅ PHÒNG TỒN TẠI → MỚI ĐƯỢC LOAD DATA
+    const roomData = roomSnap.val();
+
+    // ✅ LOAD PHẦN THƯỞNG TỪ FIREBASE
+    gameState.denominations = roomData.denominations || {};
+    gameState.specialPrizes = roomData.specialPrizes || {};
+
+    // ✅ BACKUP ĐỂ INVENTORY + DRAW ĐÚNG
+    gameState.denominationsBackup = JSON.parse(JSON.stringify(gameState.denominations));
+    gameState.specialPrizesBackup = JSON.parse(JSON.stringify(gameState.specialPrizes));
+
+    gameState.roomCode = roomCode;
+    gameState.isHost = false;
+
+    saveGameState();
+    navigateTo('enter-name');
+
+  } catch (err) {
+    console.error('🔥 Firebase error:', err);
+    alert('❌ Lỗi kiểm tra phòng: ' + err.message);
+
+    if (joinBtn) {
+      joinBtn.disabled = false;
+      joinBtn.textContent = '🎉 THAM GIA';
+    }
+  }
 }
-
 async function submitPlayerName() {
   const playerName = document.getElementById('player-name').value.trim();
+  
   if (!playerName) {
     alert('Vui lòng nhập tên của bạn!');
     return;
+  }
+
+  // ✅ LẤY BUTTON BẰNG querySelector
+  const submitBtn = document.querySelector('#screen-enter-name .btn-primary');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ Đang tham gia...';
   }
 
   const { database, ref, push, set } = window.firebaseDB;
@@ -2229,7 +2349,8 @@ async function submitPlayerName() {
   saveGameState();
 
   try {
-    // ✅ TẠO PLAYER TRONG FIREBASE
+    console.log('👤 Adding player:', playerName);
+    
     const playerRef = push(ref(database, `rooms/${gameState.roomCode}/players`));
 
     const playerData = {
@@ -2239,25 +2360,46 @@ async function submitPlayerName() {
     };
 
     await set(playerRef, playerData);
-
-    console.log('✅ Player joined:', playerData);
+    
+    console.log('✅ Player added successfully');
+    
+    listenPlayersRealtime();
 
     navigateTo('welcome');
+    document.getElementById('welcome-name').textContent = playerName;
 
   } catch (err) {
-    console.error(err);
-    alert('❌ Lỗi tham gia phòng');
+    console.error('🔥 Firebase error:', err);
+    alert('❌ Lỗi tham gia phòng: ' + err.message);
+    
+    // ✅ RESET BUTTON
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '✅ XÁC NHẬN';
+    }
   }
 }
-
 // Start game
-function startGame() {
+async function startGame() {
+  if (!gameState.roomCode) return;
+
+  const { database, ref, update } = window.firebaseDB;
+
+  try {
+    await update(ref(database, `rooms/${gameState.roomCode}`), {
+      gameStarted: true,
+      startedAt: Date.now()
+    });
+
     gameState.gameStarted = true;
     saveGameState();
-    // Clear history để tránh back loop
-    navigateTo('host-after-start', true);
-}
 
+    navigateTo('host-after-start', true);
+  } catch (e) {
+    console.error('Start game error:', e);
+    alert('❌ Không thể bắt đầu game');
+  }
+}
 // Host join game
 function hostJoinGame() {
     gameState.currentPlayer = gameState.hostName;
@@ -2279,47 +2421,93 @@ function switchTab(tabName) {
 }
 
 // Update waiting player list
+function updatePlayerList() {
+    const container = document.getElementById('player-list');
+    const countEl = document.getElementById('player-count');
+
+    if (!container || !countEl) {
+        console.warn('❌ player-list hoặc player-count không tồn tại');
+        return;
+    }
+
+    container.innerHTML = '';
+
+    if (!gameState.players || gameState.players.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">👥</div>
+                <div class="empty-state-text">Chưa có người chơi nào</div>
+            </div>
+        `;
+        countEl.textContent = '0';
+        return;
+    }
+
+    gameState.players.forEach(player => {
+        const item = document.createElement('div');
+        item.className = 'player-item';
+
+        const statusClass = player.status === 'claimed' ? '' : 'waiting';
+        const statusText = player.status === 'claimed' ? 'Đã nhận' : 'Đang chờ';
+
+        item.innerHTML = `
+            <div class="player-avatar">
+                ${player.name.charAt(0).toUpperCase()}
+            </div>
+            <div class="player-name">${player.name}</div>
+            <div class="player-status ${statusClass}">
+                ${statusText}
+            </div>
+        `;
+
+        container.appendChild(item);
+    });
+
+    countEl.textContent = gameState.players.length.toString();
+}
 function updateWaitingPlayerList() {
     const container = document.getElementById('waiting-player-list');
     container.innerHTML = '';
-    
-    const waitingPlayers = gameState.players.filter(p => p.status === 'waiting');
-    
-    if (waitingPlayers.length === 0) {
+
+    const playingPlayers = gameState.players.filter(p => p.status === 'waiting');
+
+    if (playingPlayers.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
-                <div class="empty-state-icon">⏳</div>
-                <div class="empty-state-text">Chưa có người chơi nào đang chờ</div>
+                <div class="empty-state-icon">🎮</div>
+                <div class="empty-state-text">Không có người đang chơi</div>
             </div>
         `;
         document.getElementById('waiting-player-count').textContent = '0';
         return;
     }
 
-    waitingPlayers.forEach(player => {
+    playingPlayers.forEach(player => {
         const item = document.createElement('div');
         item.className = 'player-item';
+
         item.innerHTML = `
             <div class="player-avatar">${player.name.charAt(0).toUpperCase()}</div>
             <div class="player-name">${player.name}</div>
-            <div class="player-status waiting">Đang chờ</div>
+            <div class="player-status playing">Đang chơi</div>
         `;
+
         container.appendChild(item);
     });
 
-    document.getElementById('waiting-player-count').textContent = waitingPlayers.length;
+    document.getElementById('waiting-player-count').textContent =
+        playingPlayers.length;
 }
-
 // Update recent activity list
 function updateRecentActivityList() {
     const container = document.getElementById('recent-activity-list');
     container.innerHTML = '';
-    
-    if (gameState.recentActivity.length === 0) {
+
+    if (!gameState.recentActivity || gameState.recentActivity.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
                 <div class="empty-state-icon">🎁</div>
-                <div class="empty-state-text">Chưa có dữ liệu</div>
+                <div class="empty-state-text">Chưa có ai rút lì xì</div>
             </div>
         `;
         return;
@@ -2328,27 +2516,30 @@ function updateRecentActivityList() {
     gameState.recentActivity.slice(0, 10).forEach(activity => {
         const item = document.createElement('div');
         item.className = 'activity-item';
-        
-        const activityTime = new Date(activity.timestamp);
-        const timeStr = activityTime.toLocaleTimeString('vi-VN', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
+
+        const time = new Date(activity.timestamp).toLocaleTimeString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit'
         });
-        
+
         const isSpecial = activity.prizeType === 'special';
-        const prizeClass = isSpecial ? 'special' : '';
-        
+
         item.innerHTML = `
-            <div class="activity-time">${timeStr}</div>
+            <div class="activity-time">${time}</div>
             <div class="activity-content">
-                <div class="activity-player">${activity.name}</div>
-                <div class="activity-prize ${prizeClass}">${isSpecial ? '🎁' : '💰'} ${activity.prize}</div>
+                <div class="activity-player">
+                    👤 ${activity.name}
+                    <span class="activity-badge new">MỚI</span>
+                </div>
+                <div class="activity-prize ${isSpecial ? 'special' : ''}">
+                    ${isSpecial ? '🎁' : '💰'} ${activity.prize}
+                </div>
             </div>
         `;
+
         container.appendChild(item);
     });
 }
-
 // Shake functionality
 let shakeTimeout;
 let shakeStartTime;
@@ -2417,107 +2608,116 @@ function stopShaking() {
     drawPrize();
 }
 
-function drawPrize() {
-    const availablePrizes = [];
-    const prizeTypes = [];
-    
-    // Collect money prizes
-    for (const [denom, qty] of Object.entries(gameState.denominations)) {
-        if (qty > 0) {
-            availablePrizes.push(denom);
-            prizeTypes.push('money');
-        }
-    }
-    
-    // Collect special prizes
-    for (const [prize, qty] of Object.entries(gameState.specialPrizes)) {
-        if (qty > 0) {
-            availablePrizes.push(prize);
-            prizeTypes.push('special');
-        }
-    }
+async function drawPrize() {
+    console.log('🎲 Drawing prize...');
 
-    if (availablePrizes.length === 0) {
+    // ✅ CHECK HẾT THƯỞNG – ĐẶT Ở ĐẦU HÀM
+    if (
+        Object.keys(gameState.denominations).length === 0 &&
+        Object.keys(gameState.specialPrizes).length === 0
+    ) {
         alert('Hết phần thưởng!');
         navigateTo('home', true);
         return;
     }
 
-    const randomIndex = Math.floor(Math.random() * availablePrizes.length);
-    const randomPrize = availablePrizes[randomIndex];
-    const prizeType = prizeTypes[randomIndex];
-    
+    const prizePool = [];
+
+    // 💰 MONEY PRIZES
+    for (const [denom, qty] of Object.entries(gameState.denominations)) {
+        for (let i = 0; i < qty; i++) {
+            prizePool.push({ prize: denom, prizeType: 'money' });
+        }
+    }
+
+    // 🎁 SPECIAL PRIZES
+    for (const [prize, qty] of Object.entries(gameState.specialPrizes)) {
+        for (let i = 0; i < qty; i++) {
+            prizePool.push({ prize, prizeType: 'special' });
+        }
+    }
+
+    // ❗ fallback an toàn (hiếm khi xảy ra)
+    if (prizePool.length === 0) {
+        alert('Hết phần thưởng!');
+        navigateTo('home', true);
+        return;
+    }
+
+    // 🎲 RANDOM
+    const randomIndex = Math.floor(Math.random() * prizePool.length);
+    const { prize: randomPrize, prizeType } = prizePool[randomIndex];
+
     gameState.currentPrize = randomPrize;
     gameState.currentPrizeType = prizeType;
-    
-    // Decrease quantity
+
+    // ✅ GIẢM SỐ LƯỢNG THẬT
     if (prizeType === 'money') {
         gameState.denominations[randomPrize]--;
+        if (gameState.denominations[randomPrize] <= 0) {
+            delete gameState.denominations[randomPrize];
+        }
     } else {
         gameState.specialPrizes[randomPrize]--;
+        if (gameState.specialPrizes[randomPrize] <= 0) {
+            delete gameState.specialPrizes[randomPrize];
+        }
     }
-    
-    updatePrizeInventory();
 
+    // ✅ UPDATE SAU KHI GIẢM
+    updatePrizeInventory();
     gameState.remainingShakes--;
 
-    // Add to winners
-    const winner = {
+    // 📝 RECENT ACTIVITY (LOCAL)
+    gameState.recentActivity.unshift({
         name: gameState.currentPlayer,
         prize: randomPrize,
-        prizeType: prizeType
-    };
-    gameState.winners.unshift(winner);
-    
-    // Add to recent activity
-    const activity = {
-        name: gameState.currentPlayer,
-        prize: randomPrize,
-        prizeType: prizeType,
-        timestamp: new Date().toISOString()
-    };
-    gameState.recentActivity.unshift(activity);
-    
-    // Update player status
-    const playerIndex = gameState.players.findIndex(p => p.name === gameState.currentPlayer);
-    if (playerIndex !== -1) {
-        gameState.players[playerIndex].status = 'claimed';
-        gameState.players[playerIndex].prize = randomPrize;
-        gameState.players[playerIndex].prizeType = prizeType;
-    }
-    
+        prizeType,
+        timestamp: Date.now()
+    });
+
+    saveGameState();
     updateRecentActivityList();
     updateWaitingPlayerList();
-    saveGameState();
+    const { database, ref, push } = window.firebaseDB;
 
-    // Display result
-    const prizeAmountElement = document.getElementById('prize-amount');
-    prizeAmountElement.textContent = randomPrize;
-    
-    if (prizeType === 'special') {
-        prizeAmountElement.classList.add('special');
-    } else {
-        prizeAmountElement.classList.remove('special');
-    }
-    
+await push(
+  ref(database, `rooms/${gameState.roomCode}/recentActivity`),
+  {
+    name: gameState.currentPlayer,
+    prize: randomPrize,
+    prizeType,
+    timestamp: Date.now()
+  }
+);
+
+    // 🔥 UPDATE FIREBASE PLAYER
+    await updatePlayerInFirebase(gameState.currentPlayer, {
+        status: 'claimed',
+        prize: randomPrize,
+        prizeType,
+        claimedAt: Date.now()
+    });
+
+    // 🎉 HIỂN THỊ KẾT QUẢ
+    document.getElementById('prize-amount').textContent = randomPrize;
     document.getElementById('winner-name').textContent = gameState.currentPlayer;
     document.getElementById('winner-prize').textContent = randomPrize;
-    
-    // Show/hide withdraw button based on prize type
+
     const actionButtons = document.getElementById('prize-action-buttons');
-    if (prizeType === 'money') {
-        actionButtons.innerHTML = `
-            <button class="btn btn-primary" onclick="navigateTo('withdraw')">💰 RÚT LÌ XÌ</button>
-            <button class="btn btn-secondary" onclick="continueShaking()">🔄 TIẾP TỤC CHƠI</button>
-        `;
-    } else {
-        actionButtons.innerHTML = `
-            <button class="btn btn-primary" onclick="continueShaking()">🎊 TIẾP TỤC CHƠI</button>
-        `;
-    }
-    
+    actionButtons.innerHTML =
+        prizeType === 'money'
+            ? `
+                <button class="btn btn-primary" onclick="navigateTo('withdraw')">💰 RÚT LÌ XÌ</button>
+                <button class="btn btn-secondary" onclick="continueShaking()">🔄 TIẾP TỤC CHƠI</button>
+              `
+            : `
+                <button class="btn btn-primary" onclick="continueShaking()">🎊 TIẾP TỤC CHƠI</button>
+              `;
+
     navigateTo('result');
 }
+
 
 // Continue shaking
 function continueShaking() {
@@ -2598,28 +2798,82 @@ function submitBankInfo() {
 
 // Update player list
 function listenPlayersRealtime() {
+  if (
+    playersListenerStarted &&
+    playersListenerRoom === gameState.roomCode
+  ) return;
+
+  playersListenerStarted = true;
+  playersListenerRoom = gameState.roomCode;
+
   const { database, ref, onValue } = window.firebaseDB;
 
+  // 👥 LIST PLAYER
   onValue(ref(database, `rooms/${gameState.roomCode}/players`), (snapshot) => {
     const data = snapshot.val();
-
-    gameState.players = [];
-
-    if (data) {
-      Object.values(data).forEach(player => {
-        gameState.players.push(player);
-      });
-    }
-
+    gameState.players = data ? Object.values(data) : [];
     updatePlayerList();
     updateWaitingPlayerList();
   });
+
+  // 🎮 LIST GAME START (chỉ player)
+  onValue(ref(database, `rooms/${gameState.roomCode}/gameStarted`), (snapshot) => {
+    const started = snapshot.val();
+    if (started && !gameState.isHost) {
+      gameState.gameStarted = true;
+      saveGameState();
+      navigateTo('started', true);
+    }
+  });
+  // 🎁 LIST RECENT ACTIVITY – HOST / OBSERVE REALTIME
+  onValue(
+    ref(database, `rooms/${gameState.roomCode}/recentActivity`),
+    (snapshot) => {
+      const data = snapshot.val();
+
+      if (!data) {
+        gameState.recentActivity = [];
+      } else {
+        gameState.recentActivity = Object.values(data)
+          .sort((a, b) => b.timestamp - a.timestamp);
+      }
+
+      updateRecentActivityList();
+    }
+  );
+}
+async function updatePlayerInFirebase(playerName, data) {
+  const { database, ref, get, update } = window.firebaseDB;
+
+  const playersRef = ref(database, `rooms/${gameState.roomCode}/players`);
+  const snap = await get(playersRef);
+  if (!snap.exists()) return;
+
+  const players = snap.val();
+
+  for (const key in players) {
+    if (players[key].name === playerName) {
+      await update(ref(database, `rooms/${gameState.roomCode}/players/${key}`), data);
+      break;
+    }
+  }
 }
 
 // Update prize inventory
 function updatePrizeInventory() {
     const container = document.getElementById('prize-inventory');
+    if (!container) return;
+
     container.innerHTML = '';
+
+    // ✅ đảm bảo backup luôn tồn tại
+    if (!gameState.denominationsBackup || Object.keys(gameState.denominationsBackup).length === 0) {
+        gameState.denominationsBackup = JSON.parse(JSON.stringify(gameState.denominations));
+    }
+
+    if (!gameState.specialPrizesBackup || Object.keys(gameState.specialPrizesBackup).length === 0) {
+        gameState.specialPrizesBackup = JSON.parse(JSON.stringify(gameState.specialPrizes));
+    }
     
     // Display money prizes
     for (const [denom, qty] of Object.entries(gameState.denominations)) {
@@ -2824,11 +3078,18 @@ window.addEventListener('load', function() {
     
     try {
         loadGameState();
-        // ✅ NẾU LÀ HOST + CÓ ROOM → QUAY LẠI ADMIN + LISTEN
-if (gameState.isHost && gameState.roomCode) {
-  navigateTo('admin', true);
-  listenPlayersRealtime();
-}
+
+        // ✅ HOST reload → quay lại admin + listen
+        if (gameState.isHost && gameState.roomCode) {
+          navigateTo('admin', true);
+          listenPlayersRealtime();
+        }
+
+        // ✅ PLAYER reload → chỉ listen
+        if (!gameState.isHost && gameState.roomCode && gameState.currentPlayer) {
+          listenPlayersRealtime();
+        }
+
     } catch (e) {
         console.error('Failed to load game state:', e);
         showScreen('home');
@@ -2846,55 +3107,10 @@ if (gameState.isHost && gameState.roomCode) {
         }
     }
 
-    setTimeout(() => {
-        try {
-            initTouchSupport();
-        } catch (e) {
-            console.error('Failed to init touch support:', e);
-        }
-    }, 100);
+    setTimeout(initTouchSupport, 100);
     
     console.log('App loaded successfully');
 });
     </script>
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import {
-  getDatabase,
-  ref,
-  set,
-  get,
-  onValue,
-  update,
-  remove,
-  push
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyB83HpHO5PRHkJ8YDLdDAySOmIQVtTtUXk",
-  authDomain: "lac-li-xi-2026-8f32c.firebaseapp.com",
-  databaseURL: "https://lac-li-xi-2026-8f32c-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "lac-li-xi-2026-8f32c",
-  storageBucket: "lac-li-xi-2026-8f32c.firebasestorage.app",
-  messagingSenderId: "230674094866",
-  appId: "1:230674094866:web:d7fc3a0d9d357aba32b1cb"
-};
-
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
-
-window.firebaseDB = {
-  database,
-  ref,
-  set,
-  get,
-  onValue,
-  update,
-  remove,
-  push
-};
-
-console.log("🔥 FIREBASE READY");
-</script>
 </body>
 </html>
