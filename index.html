@@ -296,6 +296,122 @@
             pointer-events: none;
         }
 
+        /* Custom Popup Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 20px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .modal-overlay.hidden {
+            display: none;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 25px;
+            padding: 35px 30px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-icon {
+            font-size: 64px;
+            margin-bottom: 18px;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #8B0000;
+            margin-bottom: 12px;
+        }
+
+        .modal-message {
+            font-size: 15px;
+            color: #666;
+            margin-bottom: 28px;
+            line-height: 1.6;
+        }
+
+        .modal-room-code {
+            background: #FFF4CC;
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 28px;
+            font-family: 'Courier New', monospace;
+            font-size: 28px;
+            font-weight: 700;
+            color: #D4202F;
+            letter-spacing: 3px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 16px;
+            border: none;
+            border-radius: 50px;
+            font-family: 'Quicksand', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .modal-btn-primary {
+            background: #D4202F;
+            color: white;
+            box-shadow: 0 8px 20px rgba(212, 32, 47, 0.3);
+        }
+
+        .modal-btn-primary:hover,
+        .modal-btn-primary:active {
+            background: #8B0000;
+            transform: scale(1.02);
+        }
+
+        .modal-btn-secondary {
+            background: #FFD700;
+            color: #8B0000;
+            box-shadow: 0 8px 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .modal-btn-secondary:hover,
+        .modal-btn-secondary:active {
+            background: #FFA500;
+            transform: scale(1.02);
+        }
+
         /* Input fields */
         .form-group {
             margin-bottom: 18px;
@@ -530,25 +646,27 @@
             flex: 7;
         }
 
+        /* Room code - CENTERED */
         .room-code {
             background: #FFF4CC;
-            padding: 18px;
-            border-radius: 15px;
+            padding: 22px;
+            border-radius: 18px;
             margin: 18px 0;
+            text-align: center;
         }
 
         .room-code-label {
-            font-size: 13px;
+            font-size: 14px;
             color: #8B0000;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             font-weight: 600;
         }
 
         .room-code-value {
-            font-size: 22px;
+            font-size: 32px;
             font-weight: 700;
             color: #D4202F;
-            letter-spacing: 2px;
+            letter-spacing: 4px;
             font-family: 'Courier New', monospace;
         }
 
@@ -975,7 +1093,7 @@ import {
 
 const firebaseConfig = {
   apiKey: "AIzaSyB83HpHO5PRHkJ8YDLdDAySOmIQVtTtUXk",
-  authDomain: "lac-li-xi-2026-8f32c.firebaseapp.com",
+  authDomain: "lac-li-xi-2026-8f32c.firebasapp.com",
   databaseURL: "https://lac-li-xi-2026-8f32c-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "lac-li-xi-2026-8f32c",
   storageBucket: "lac-li-xi-2026-8f32c.firebasestorage.app",
@@ -1010,6 +1128,26 @@ console.log("🔥 FIREBASE READY");
         <div class="lantern"></div>
     </div>
 
+    <!-- Custom Modal Popup -->
+    <div id="room-choice-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-icon">🏠</div>
+            <div class="modal-title">Phòng đã tồn tại</div>
+            <div class="modal-message">
+                Bạn có phòng đang hoạt động
+            </div>
+            <div class="modal-room-code" id="modal-room-code">XXXXX</div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-primary" onclick="continueOldRoomFromModal()">
+                    🔄 TIẾP TỤC
+                </button>
+                <button class="modal-btn modal-btn-secondary" onclick="createNewRoomFromModal()">
+                    🆕 TẠO MỚI
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <!-- Header -->
         <div class="header">
@@ -1020,7 +1158,7 @@ console.log("🔥 FIREBASE READY");
         <!-- Screen 1: Home -->
         <div id="screen-home" class="screen">
             <h2>Chào mừng bạn đến với trò chơi lì xì!</h2>
-            <button class="btn btn-primary" onclick="navigateTo('create-room')">🎊 TẠO PHÒNG</button>
+            <button class="btn btn-primary" onclick="handleCreateRoomClick()">🎊 TẠO PHÒNG</button>
             <button class="btn btn-secondary" onclick="navigateTo('join-room')">🎉 THAM GIA PHÒNG</button>
             
             <!-- Clear data button -->
@@ -1291,7 +1429,6 @@ console.log("🔥 FIREBASE READY");
             </div>
         </div>
     </div>
-
 <script>
     // ========== 1. GAME STATE ==========
 let gameState = {
@@ -1416,52 +1553,22 @@ function loadGameState() {
             return;
         }
         
+        // ✅ CHỈ LƯU STATE, KHÔNG RESTORE MÀN HÌNH
         Object.assign(gameState, loaded);
         
-        // RESTORE HOST
+        // RESTORE LISTENERS cho HOST
         if (gameState.isHost && gameState.roomCode) {
-            setTimeout(() => {
-                if (gameState.currentScreen === 'admin' || 
-                    gameState.currentScreen === 'host-observe' ||
-                    gameState.currentScreen === 'host-after-start') {
-                    try {
-                        restoreAdminDashboard();
-                    } catch (e) {
-                        console.error('Error restoring dashboard:', e);
-                    }
-                }
-            }, 100);
-            
             listenPlayersRealtime();
         }
         
-        // RESTORE PLAYER & LISTEN ROOM STATUS
+        // RESTORE LISTENER cho PLAYER
         if (!gameState.isHost && gameState.playerRoomCode) {
             listenRoomStatus();
         }
         
-        if (gameState.denominations && Object.keys(gameState.denominations).length > 0) {
-            setTimeout(() => {
-                try {
-                    updateDenomList();
-                } catch (e) {
-                    console.error('Error updating denom list:', e);
-                }
-            }, 100);
-        }
-        
-        if (gameState.currentScreen && gameState.currentScreen !== 'home') {
-            const screenElement = document.getElementById('screen-' + gameState.currentScreen);
-            if (screenElement) {
-                showScreen(gameState.currentScreen);
-            } else {
-                showScreen('home');
-            }
-        }
     } catch (e) {
         console.error('Error loading:', e);
         clearGameState();
-        showScreen('home');
     }
 }
 
@@ -1550,7 +1657,40 @@ function restoreAdminDashboard() {
     }
 }
 
-// ========== 4. FIREWORKS ==========
+// ========== 4. MODAL POPUP ==========
+function showRoomChoiceModal() {
+    const modal = document.getElementById('room-choice-modal');
+    const roomCodeEl = document.getElementById('modal-room-code');
+    
+    if (roomCodeEl) {
+        roomCodeEl.textContent = gameState.roomCode;
+    }
+    
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+function hideRoomChoiceModal() {
+    const modal = document.getElementById('room-choice-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+window.continueOldRoomFromModal = function() {
+    hideRoomChoiceModal();
+    continueOldRoom();
+};
+
+window.createNewRoomFromModal = function() {
+    hideRoomChoiceModal();
+    resetForNewRoom();
+    resetCreateRoomForm();
+    navigateTo('create-room');
+};
+
+// ========== 5. FIREWORKS ==========
 function createSparks() {
     const fireworks = document.getElementById('fireworks');
     if (!fireworks) return;
@@ -1564,7 +1704,7 @@ function createSparks() {
     }
 }
 
-// ========== 5. DENOMINATION MANAGEMENT ==========
+// ========== 6. DENOMINATION MANAGEMENT ==========
 function selectDenom(value) {
     if (!gameState.denominations[value]) {
         gameState.denominations[value] = 1;
@@ -1661,7 +1801,7 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, m => map[m]);
 }
 
-// ========== 6. SPECIAL PRIZES ==========
+// ========== 7. SPECIAL PRIZES ==========
 function addSpecialPrize() {
     specialPrizeCounter++;
     const container = document.getElementById('special-prizes-container');
@@ -1712,155 +1852,25 @@ function collectSpecialPrizes() {
     });
 }
 
-// ========== 7. ROOM MANAGEMENT ==========
+// ========== 8. ROOM MANAGEMENT ==========
 function generateRoomCode() {
     return 'TET' + Math.random().toString(36).substr(2, 6).toUpperCase();
 }
 
-function showHomeWithContinue() {
-    const homeScreen = document.getElementById('screen-home');
-    if (!homeScreen) return;
+// ✅ FIX: Hàm xử lý click nút "TẠO PHÒNG"
+window.handleCreateRoomClick = function() {
+    // Kiểm tra có phòng cũ không
+    const hasOldRoom = gameState.isHost && gameState.roomCode;
     
-    // HOST: Nút tiếp tục phòng
-    const hasActiveHostRoom = gameState.isHost && gameState.roomCode;
-    
-    if (hasActiveHostRoom) {
-        let continueBtn = homeScreen.querySelector('.continue-room-btn');
-        if (!continueBtn) {
-            continueBtn = document.createElement('button');
-            continueBtn.className = 'btn btn-primary continue-room-btn';
-            continueBtn.style.marginBottom = '12px';
-            continueBtn.onclick = continueOldRoom;
-            
-            const createBtn = homeScreen.querySelector('.btn-primary');
-            if (createBtn) {
-                createBtn.parentNode.insertBefore(continueBtn, createBtn);
-            }
-        }
-        continueBtn.innerHTML = `🔄 TIẾP TỤC PHÒNG ${gameState.roomCode}`;
-        continueBtn.style.display = 'block';
+    if (hasOldRoom) {
+        // Hiện CUSTOM MODAL
+        showRoomChoiceModal();
     } else {
-        const continueBtn = homeScreen.querySelector('.continue-room-btn');
-        if (continueBtn) {
-            continueBtn.remove();
-        }
+        // Không có phòng cũ - reset form và đi tới màn tạo phòng
+        resetCreateRoomForm();
+        navigateTo('create-room');
     }
-    
-    // PLAYER: Nút tiếp tục phòng đã tham gia
-    const hasActivePlayerRoom = !gameState.isHost && gameState.playerRoomCode;
-    
-    if (hasActivePlayerRoom) {
-        let playerContinueBtn = homeScreen.querySelector('.continue-player-room-btn');
-        if (!playerContinueBtn) {
-            playerContinueBtn = document.createElement('button');
-            playerContinueBtn.className = 'btn btn-primary continue-player-room-btn';
-            playerContinueBtn.style.marginBottom = '12px';
-            playerContinueBtn.onclick = continuePlayerRoom;
-            
-            const joinBtn = homeScreen.querySelector('.btn-secondary');
-            if (joinBtn) {
-                joinBtn.parentNode.insertBefore(playerContinueBtn, joinBtn);
-            }
-        }
-        playerContinueBtn.innerHTML = `🔄 QUAY LẠI PHÒNG ${gameState.playerRoomCode}`;
-        playerContinueBtn.style.display = 'block';
-    } else {
-        const playerContinueBtn = homeScreen.querySelector('.continue-player-room-btn');
-        if (playerContinueBtn) {
-            playerContinueBtn.remove();
-        }
-    }
-}
-
-async function continuePlayerRoom() {
-    const { database, ref, get } = window.firebaseDB;
-    
-    try {
-        const roomSnap = await get(ref(database, `rooms/${gameState.playerRoomCode}`));
-        
-        if (!roomSnap.exists()) {
-            alert('❌ Phòng đã bị xóa hoặc không tồn tại');
-            clearGameState();
-            showHomeWithContinue();
-            return;
-        }
-        
-        const roomData = roomSnap.val();
-        
-        // Restore room data
-        gameState.roomCode = gameState.playerRoomCode;
-        gameState.denominations = roomData.denominations || {};
-        gameState.specialPrizes = roomData.specialPrizes || {};
-        gameState.denominationsBackup = JSON.parse(JSON.stringify(gameState.denominations));
-        gameState.specialPrizesBackup = JSON.parse(JSON.stringify(gameState.specialPrizes));
-        gameState.gameStarted = roomData.gameStarted || false;
-        
-        saveGameState();
-        listenPlayersRealtime();
-        listenRoomStatus();
-        
-        if (gameState.gameStarted) {
-            navigateTo('shake');
-        } else {
-            navigateTo('waiting');
-        }
-    } catch (err) {
-        console.error('Error continuing player room:', err);
-        alert('❌ Lỗi khi quay lại phòng');
-    }
-}
-
-function listenRoomStatus() {
-    if (!gameState.playerRoomCode || gameState.isHost) return;
-    
-    const { database, ref, onValue } = window.firebaseDB;
-    
-    // Detach old listener
-    if (roomStatusListener) {
-        roomStatusListener();
-    }
-    
-    const roomRef = ref(database, `rooms/${gameState.playerRoomCode}`);
-    
-    const unsubscribe = onValue(roomRef, (snapshot) => {
-        if (!snapshot.exists()) {
-            alert('🚫 Phòng đã bị hủy bởi chủ phòng');
-            clearGameState();
-            navigateTo('home', true);
-            showHomeWithContinue();
-        }
-    });
-    
-    roomStatusListener = unsubscribe;
-}
-
-window.addEventListener('click', function(e) {
-    if (e.target && e.target.textContent && e.target.textContent.includes('TẠO PHÒNG')) {
-        const hasOldRoom = gameState.isHost && gameState.roomCode;
-        
-        if (hasOldRoom) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const choice = confirm(
-                `Bạn có phòng "${gameState.roomCode}" đang tồn tại.\n\n` +
-                `✅ OK = Tiếp tục phòng cũ\n` +
-                `❌ Cancel = Tạo phòng mới`
-            );
-            
-            if (choice) {
-                continueOldRoom();
-            } else {
-                resetForNewRoom();
-                resetCreateRoomForm();
-                navigateTo('create-room');
-            }
-            return false;
-        } else {
-            resetCreateRoomForm();
-        }
-    }
-});
+};
 
 function continueOldRoom() {
     if (gameState.gameStarted) {
@@ -1872,15 +1882,15 @@ function continueOldRoom() {
     listenPlayersRealtime();
 }
 
+// ✅ FIX: Reset state khi tạo phòng mới
 function resetForNewRoom() {
     const wasHost = gameState.isHost;
     clearGameState();
     gameState.isHost = wasHost;
     saveGameState();
-    
-    showHomeWithContinue();
 }
 
+// ✅ FIX: Reset form tạo phòng (chỉ gọi khi cần)
 function resetCreateRoomForm() {
     setTimeout(() => {
         const hostNameInput = document.getElementById('host-name');
@@ -1912,9 +1922,23 @@ async function createRoom() {
         createBtn.textContent = '⏳ Đang tạo...';
     }
 
-    const hostName = document.getElementById('host-name').value.trim();
-    const shakeCount = parseInt(document.getElementById('shake-count').value);
-    const mode = document.querySelector('input[name="mode"]:checked').value;
+    // ✅ FIX: Lấy giá trị TRƯỚC khi validate
+    const hostNameInput = document.getElementById('host-name');
+    const shakeCountInput = document.getElementById('shake-count');
+    const modeRadio = document.querySelector('input[name="mode"]:checked');
+    
+    if (!hostNameInput) {
+        console.error('❌ Không tìm thấy input host-name');
+        if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.textContent = '🎊 TẠO PHÒNG';
+        }
+        return;
+    }
+
+    const hostName = hostNameInput.value.trim();
+    const shakeCount = parseInt(shakeCountInput?.value || '10');
+    const mode = modeRadio?.value || 'online';
 
     if (!hostName) {
         alert('Vui lòng nhập tên chủ phòng!');
@@ -2169,7 +2193,6 @@ function confirmBackFromStarted() {
     if (choice) {
         saveGameState();
         navigateTo('home', true);
-        showHomeWithContinue();
     }
 }
 
@@ -2185,7 +2208,6 @@ async function closeRoom() {
         
         alert('✅ Đã hủy phòng thành công');
         navigateTo('home', true);
-        showHomeWithContinue();
     } catch (e) {
         console.error('Error closing room:', e);
         alert('❌ Không thể hủy phòng');
@@ -2244,7 +2266,30 @@ function updateRoomStatus() {
     statusEl.innerHTML = statusHTML;
 }
 
-// ========== 8. PLAYER MANAGEMENT ==========
+function listenRoomStatus() {
+    if (!gameState.playerRoomCode || gameState.isHost) return;
+    
+    const { database, ref, onValue } = window.firebaseDB;
+    
+    // Detach old listener
+    if (roomStatusListener) {
+        roomStatusListener();
+    }
+    
+    const roomRef = ref(database, `rooms/${gameState.playerRoomCode}`);
+    
+    const unsubscribe = onValue(roomRef, (snapshot) => {
+        if (!snapshot.exists()) {
+            alert('🚫 Phòng đã bị hủy bởi chủ phòng');
+            clearGameState();
+            navigateTo('home', true);
+        }
+    });
+    
+    roomStatusListener = unsubscribe;
+}
+
+// ========== 9. PLAYER MANAGEMENT ==========
 function listenPlayersRealtime() {
     if (playersListenerStarted && playersListenerRoom === gameState.roomCode) return;
 
@@ -2495,7 +2540,7 @@ function updatePrizeInventory() {
     }
 }
 
-// ========== 9. SHAKE & PRIZE ==========
+// ========== 10. SHAKE & PRIZE ==========
 function startShaking() {
     if (gameState.isShaking) return;
     
@@ -2676,7 +2721,7 @@ function continueShaking() {
     }
 }
 
-// ========== 10. SHARE ==========
+// ========== 11. SHARE ==========
 function shareRoom() {
     const shareTitle = 'Lắc Lì Xì Tết 2026';
     const shareText = `Mời bạn tham gia phòng lì xì ${gameState.roomCode}`;
@@ -2776,7 +2821,7 @@ function showToast(message) {
     }, 2500);
 }
 
-// ========== 11. MISC ==========
+// ========== 12. MISC ==========
 function switchTab(tabName, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -2795,7 +2840,6 @@ function confirmBackToHome() {
     
     if (confirm('Bạn có chắc muốn thoát? Phòng sẽ được lưu lại.')) {
         navigateTo('home', true);
-        showHomeWithContinue();
     }
 }
 
@@ -2838,14 +2882,17 @@ function initTouchSupport() {
     }
 }
 
-// ========== 12. INIT ==========
+// ========== 13. INIT ==========
 window.addEventListener('load', function () {
     createSparks();
+    
+    // ✅ FIX: Load state nhưng LUÔN về Home
     loadGameState();
 
     const urlParams = new URLSearchParams(window.location.search);
     const roomFromURL = urlParams.get('room');
 
+    // Nếu có mã phòng trong URL
     if (roomFromURL && !gameState.isHost) {
         const input = document.getElementById('join-room-code');
         if (input) input.value = roomFromURL;
@@ -2854,39 +2901,15 @@ window.addEventListener('load', function () {
         return;
     }
 
-    if (gameState.isHost && gameState.roomCode) {
-        const screen = gameState.currentScreen || 'admin';
-        
-        if (screen === 'home') {
-            showHomeWithContinue();
-        }
-        
-        showScreen(screen);
-        
-        setTimeout(() => {
-            if (screen === 'admin' || screen === 'host-observe' || screen === 'host-after-start') {
-                try {
-                    restoreAdminDashboard();
-                } catch (e) {
-                    console.error('Error restoring admin:', e);
-                }
-            }
-            
-            injectCancelButton();
-            injectStartedBackButton();
-        }, 100);
-
-        initTouchSupport();
-        return;
-    }
-
-    if (!gameState.isHost && gameState.roomCode && !roomFromURL) {
-        clearGameState();
-    }
-
+    // ✅ LUÔN HIỆN HOME KHI VÀO LẠI WEB
     showScreen('home');
-    showHomeWithContinue();
     initTouchSupport();
+    
+    // Inject các button cần thiết
+    setTimeout(() => {
+        injectCancelButton();
+        injectStartedBackButton();
+    }, 100);
 });
 
 </script>
